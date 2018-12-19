@@ -117,3 +117,93 @@ mod outermost {
 ```
 
 結局、ruleの記述にある`parent`の意味を誤解していただけだった、というオチでした
+
+
+
+## 2018/12/19 (wed)
+[ledermann/unread](https://github.com/ledermann/unread)を調べた。
+使い方とかは、基本的にはREADMEを見れば何となく分かるけど、ソース読んだりしたので少しメモっておく
+
+- これは何？  
+既読・未読機能を実現するためのgem  
+インストール方法やメソッドの呼び出し例などは本家サイトのREADME.mdを参照
+
+
+- 用語  
+readable : 既読・未読対象となる主体のこと。ex. Message  
+reader : 読んで字のごとく、既読・未読のアクションを実行する主体。ex. User
+
+- 準備  
+acts_as_reader を対象のモデル内のクラスマクロとして呼び出す  
+acts_as_readable を対象のモデル(ry  
+特にacts_as_readableでは、onオプションを使うと既読・未読の判定時に利用するタイムスタンプカラムを変更可(デフォルトはupdated_at)
+
+- DBテーブル  
+read_marks  
+readableとreaderを紐付ける中間テーブルの役割を果たす
+
+- データの初期化  
+lib/unread/reader.rb#setup_new_readerで実施  
+特に、lib/unread/base.rb#act_as_readerにて、after_create :set_new_readerしていることに注意  
+初期化時にはreadable_idにNULLが突っ込まれる  
+本gemでは、globalという用語が出てくるが、これはこの時に生成されたレコードのことを指す
+
+- 未読 -> 既読  
+lib/readableのmark_as_read!というクラスメソッド、インスタンスメソッド両方が存在し、それらを呼び出すことで既読扱いにする  
+mark_as_read!はunread?を呼び出して、trueならば以下のようにして既読状態にする  
+
+```ruby
+        ReadMark.transaction do
+          if unread?(reader)
+            rm = read_mark(reader) || read_marks.build
+            rm.reader_id   = reader.id
+            rm.reader_type = reader.class.base_class.name
+            rm.timestamp   = self.send(readable_options[:on])
+            rm.save!
+          end
+        end
+```
+
+unread?はwith_read_marks_forメソッドの判定用のところを一旦無視すると  
+ self.class.unread_by(reader).exists?(self.id)  
+のワンライナーで行っている  
+
+- unread_byについて  
+
+```ruby
+      def unread_by(reader)
+        result = join_read_marks(reader)
+
+        if global_time_stamp = reader.read_mark_global(self).try(:timestamp)
+          result.where("#{ReadMark.quoted_table_name}.id IS NULL
+                        AND #{quoted_table_name}.#{connection.quote_column_name(readable_options[:on])} > ?", global_time_stamp)
+        else
+          result.where("#{ReadMark.quoted_table_name}.id IS NULL")
+        end
+      end
+```
+
+join_read_marksはreadableテーブルとread_marksテーブルとをleft joinしてglobal_time_stampよりもreadableテーブルのレコードのタイムスタンプが更新処理などによって
+若くなれば、未読判定となる。  
+「"#{ReadMark.quoted_table_name}.id IS NULL」の部分がなぜ必要かというと、join_read_marksのleft joinしているので、そのSQLの取得結果は、未読扱いものはread_marks.idがNULLになるから  
+
+```
+      def join_read_marks(reader)
+        assert_reader(reader)
+
+        joins "LEFT JOIN #{ReadMark.quoted_table_name}
+                ON #{ReadMark.quoted_table_name}.readable_type  = '#{readable_parent.name}'
+               AND #{ReadMark.quoted_table_name}.readable_id    = #{quoted_table_name}.#{quoted_primary_key}
+               AND #{ReadMark.quoted_table_name}.reader_id      = #{quote_bound_value(reader.id)}
+               AND #{ReadMark.quoted_table_name}.reader_type    = #{quote_bound_value(reader.class.base_class.name)}
+               AND #{ReadMark.quoted_table_name}.timestamp     >= #{quoted_table_name}.#{connection.quote_column_name(readable_options[:on])}"
+      end
+```
+
+- クリーンアップ用メソッド cleanup_read_marks! について  
+https://github.com/ledermann/unread#how-does-it-work   
+既読レコードが増え続けるので、cronによるバッチ処理などで、このメソッドを呼び出す必要がある  
+ex. `Message.cleanup_read_marks!`    
+このメソッドの処理は大きく分けて2つのことを行う:  
+  - すでに既読扱いになっているレコードの削除
+  - globalなレコードのタイムスタンプのバッチ実施時刻への更新
