@@ -183,8 +183,8 @@ lib/unread/reader.rb#setup_new_readerで実施
   end
   ```
 
-  - `join_read_marks`は`readable`テーブルと`read_marks`テーブルとをleft joinして`global_time_stamp`よりもreadableテーブルのレコードのタイムスタンプが更新処理などによって若くなれば、未読判定となる。  
-  -`"#{ReadMark.quoted_table_name}.id IS NULL`の部分がなぜ必要かというと、`join_read_marks`で`left join`しているので、そのSQLの取得結果は、未読扱いものは`read_marks.id`が`NULL`になるから  
+  - `join_read_marks`は`readable`テーブルと`read_marks`テーブルとをleft joinして`global_time_stamp`よりもreadableテーブルのレコードのタイムスタンプが更新処理などによって若くなれば、未読判定となる。    
+  - `"#{ReadMark.quoted_table_name}.id IS NULL`の部分がなぜ必要かというと、`join_read_marks`で`left join`しているので、そのSQLの取得結果は、未読扱いものは`read_marks.id`が`NULL`になるから  
 
   ```ruby
   def join_read_marks(reader)
