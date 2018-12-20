@@ -130,23 +130,23 @@ mod outermost {
 
 
 - 用語  
-readable : 既読・未読対象となる主体のこと。ex. Message  
-reader : 読んで字のごとく、既読・未読のアクションを実行する主体。ex. User
+`readable` : 既読・未読対象となる主体のこと。ex. `Message`  
+`reader` : 読んで字のごとく、既読・未読のアクションを実行する主体。ex. `User`
 
 - 準備  
-acts_as_reader を対象のモデル内のクラスマクロとして呼び出す  
-acts_as_readable を対象のモデル(ry  
-特にacts_as_readableでは、onオプションを使うと既読・未読の判定時に利用するタイムスタンプカラムを変更可(デフォルトはupdated_at)
+`acts_as_reader` を対象のモデル内のクラスマクロとして呼び出す  
+`acts_as_readable` を対象のモデル(ry  
+特に`acts_as_readable`では、`on`オプションを使うと既読・未読の判定時に利用するタイムスタンプカラムを変更可(デフォルトは`updated_at`)
 
 - DBテーブル  
-read_marks  
-readableとreaderを紐付ける中間テーブルの役割を果たす
+`read_marks`  
+`readable`と`reader`を紐付ける中間テーブルの役割を果たす
 
 - データの初期化  
-lib/unread/reader.rb#setup_new_readerで実施  
-特に、lib/unread/base.rb#act_as_readerにて、after_create :set_new_readerしていることに注意  
-初期化時にはreadable_idにNULLが突っ込まれる  
-本gemでは、globalという用語が出てくるが、これはこの時に生成されたレコードのことを指す
+`lib/unread/reader.rb`の`setup_new_reader`で実施  
+特に、`lib/unread/base.rb`の`act_as_reader`にて、`after_create :set_new_reader`していることに注意  
+初期化時には`readable_id`に`NULL`が突っ込まれる  
+本gemでは、`global`という単語が出てくるが、これはこの時に生成されたレコードのことを指す
 
 - 未読 -> 既読  
 `lib/readable`の`mark_as_read!`というクラスメソッド、インスタンスメソッド両方が存在し、それらを呼び出すことで既読扱いにする  
