@@ -132,6 +132,7 @@ mod outermost {
 - 用語  
 `readable` : 既読・未読対象となる主体のこと。ex. `Message`  
 `reader` : 読んで字のごとく、既読・未読のアクションを実行する主体。ex. `User`
+globalなレコード : 既読、未読を判定する基準となるタイムスタンプが格納されているレコードのこと。`readable_id`カラムが`NULL`になっている。
 
 - 準備  
 `acts_as_reader` を対象のモデル内のクラスマクロとして呼び出す  
@@ -199,6 +200,14 @@ mod outermost {
   end
   ```
 
+- 既存データに対する対応(2018/12/20 追記)   
+既存レコードに対して本gemを適用するには一つ注意が必要である  
+`reader`となる既存レコードに対して、globalなレコードを作成する必要がある:  
+
+  ```ruby
+  User.find_each { |user| Comic.mark_as_read!(:all, for: user) }  
+  ```
+
 - クリーンアップ用メソッド `cleanup_read_marks!` について  
 https://github.com/ledermann/unread#how-does-it-work   
 既読レコードが増え続けるので、cronによるバッチ処理などで、このメソッドを呼び出す必要がある  
@@ -206,3 +215,4 @@ ex. `Message.cleanup_read_marks!`
 このメソッドの処理は大きく分けて2つのことを行う:  
   - すでに既読扱いになっているレコードの削除
   - globalなレコードのタイムスタンプのバッチ実施時刻への更新
+
